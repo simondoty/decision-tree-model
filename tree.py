@@ -2,7 +2,7 @@
 
 import copy
 
-column_details = [["binary"], ["binary"], ["binary"]]
+column_details = [["binary"], ["log_distance"], ["other"]]
 inputfile = 'sample_input.txt'
 data=dict()
 f = open('sample_input.txt')
@@ -64,10 +64,9 @@ def returnSplitGini(records, col_split):
 		( len(false_set) / records_length * false_set_gini) )
 		return_set = (total_gini, true_set, false_set, col_split)
 
-	else:
-		quartiles = column_details[col_split][1:]
+	elif column_details[col_split][0] == "log_distance":
 		best_gini = 0.6
-		for quartile in quartiles:
+		for log_break in range(1, 10):
 			for record in records:
 				if data[record][col_split] >= quartile: true_set.append(record)
 				else: false_set.append(record)
@@ -77,9 +76,10 @@ def returnSplitGini(records, col_split):
 			( len(false_set) / records_length * false_set_gini) )
 
 			if total_gini < best_gini:
-				return_set = (total_gini, true_set, false_set, col_split, quartile)
+				return_set = (total_gini, true_set, false_set, col_split, log_break)
 				best_gini = total_gini
-	
+	else: return
+
 	return return_set
 	
 

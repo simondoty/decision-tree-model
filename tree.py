@@ -2,6 +2,7 @@
 
 import copy
 
+column_details = [["binary"], ["binary"], ["binary"]]
 inputfile = 'sample_input.txt'
 data=dict()
 f = open('sample_input.txt')
@@ -25,13 +26,12 @@ class d_node:
 		self.records = records
 		self.col_nums = col_nums
 		self.gini = None
-		self.split_col= None
-		self.is_leaf=False
+		self.split_col = None
+		self.is_leaf = False
 		self.tchild = None
 		self.fchild = None
 		self.classification = None
-		self.split_value = "binary"
-
+		self.split_value = None
 
 # Decision Tree class
 class d_tree:
@@ -40,13 +40,10 @@ class d_tree:
 
 def calculateGini(records):		
 	total = float(len(records))
-	if total == 0:
-		return 0
+	if total == 0: return 0
 	num_class_1 = 0
-	num_class_0 = 0	
 	for record in records:
-		if data[record][-1] == 1:
-			num_class_1 = num_class_1 + 1
+		if data[record][-1] == 1: num_class_1 = num_class_1 + 1
 	num_class_0 = total - num_class_1
 	gini = 1 - (num_class_1 / total)**2 - (num_class_0 / total)**2
 	return gini
@@ -54,17 +51,36 @@ def calculateGini(records):
 def returnSplitGini(records, col_split):
 	true_set= list()
 	false_set= list()
-	for record in records:
-		if data[record][col_split] == 1:
-			true_set.append(record)
-		else:
-			false_set.append(record)
-	true_set_gini = calculateGini(true_set)
-	false_set_gini = calculateGini(false_set)	
-	records_length = float(len(records))
-	total_gini = ( (len(true_set) / records_length * true_set_gini) + 
+	return_set= list()
+
+	if column_details[col_split][0] == "binary":
+		for record in records:		
+			if data[record][col_split] == 1: true_set.append(record)
+			else: false_set.append(record)
+		true_set_gini = calculateGini(true_set)
+		false_set_gini = calculateGini(false_set)
+		records_length = float(len(records))
+		total_gini = ( (len(true_set) / records_length * true_set_gini) + 
 		( len(false_set) / records_length * false_set_gini) )
-	return (total_gini, true_set, false_set, col_split)
+		return_set = (total_gini, true_set, false_set, col_split)
+
+	else:
+		quartiles = column_details[col_split][1:]
+		best_gini = 0.6
+		for quartile in quartiles:
+			for record in records:
+				if data[record][col_split] >= quartile: true_set.append(record)
+				else: false_set.append(record)
+			true_set_gini = calculateGini(true_set)
+			false_set_gini = calculateGini(false_set)
+			total_gini = ( (len(true_set) / records_length * true_set_gini) + 
+			( len(false_set) / records_length * false_set_gini) )
+
+			if total_gini < best_gini:
+				return_set = (total_gini, true_set, false_set, col_split, quartile)
+				best_gini = total_gini
+	
+	return return_set
 	
 
 def makeLeaf(node):
@@ -89,17 +105,18 @@ def recursiveSplit(node):
 	else:		
 		best_gini_col_id = None
 		return_values = tuple()
-		best = tuple()
-		initial_gini = 1
-		for col_id in node.col_nums:
+		best = tuple()	
+		for col_id in node.col_nums:			
 			return_values = returnSplitGini(node.records, col_id)
-			if return_values[0] < initial_gini:
+			if return_values[0] < node.gini:
 				best = copy.deepcopy(return_values)
-		if not (best[0] < node.gini):
-			makeLeaf(node)	
-			return		
+		if best is None:
+			makeLeaf(node)
+			return	
 		node.split_col = best[3]
-		split_col_index = col_nums.index(best[3])
+		if column_details[node.split_col][0] == "real":
+			node.split_value = best[4]
+		split_col_index = col_nums.index(node.split_col)
 		colst =list()
 		colst = node.col_nums[:split_col_index] + node.col_nums[split_col_index + 1:]
 		colsf = copy.deepcopy(colst)

@@ -64,8 +64,8 @@ def returnSplitGini(records, col_split):
 		( len(false_set) / records_length * false_set_gini) )
 		return_set = (total_gini, true_set, false_set, col_split)
 
-	elif column_details[col_split][0] == "log_distance":
-		print "in log distance"
+	#elif column_details[col_split][0] == "log_distance":
+	else: # column_details[col_split][0] == "log_distance":
 		best_gini = 0.6
 		best_set= tuple()		
 		for log_break in range(1, 10):
@@ -81,8 +81,7 @@ def returnSplitGini(records, col_split):
 			if total_gini < best_gini:
 				return_set = (total_gini, copy.deepcopy(true_set), copy.deepcopy(false_set), col_split, log_break)				
 				best_gini = total_gini
-	else: 
-		print "here"		
+		
 	return return_set
 	
 
@@ -119,7 +118,8 @@ def recursiveSplit(node):
 			return	
 		print "printing best: " + str(best)
 		node.split_col = best[3]
-		if column_details[node.split_col][0] == "real":
+		if column_details[node.split_col][0] == "log_distance":
+			print "yes a log"
 			node.split_value = best[4]
 		split_col_index = col_nums.index(node.split_col)
 		colst =list()
@@ -132,26 +132,26 @@ def recursiveSplit(node):
 
 def classifyRecord(record, node):
 	if node.is_leaf:
+		print "at leaf this is classification: " + str(node.classification)
 		record.append(node.classification)
 		return
-	elif node.split_value == "binary":
+
+	elif column_details[node.split_col][0] == "binary":
 		if record[node.split_col] == 1: classifyRecord(record, node.tchild)
 		else: classifyRecord(record, node.fchild)
 	else:
 		if record[node.split_col] >= node.split_value: classifyRecord(record, node.tchild)
 		else: classifyRecord(record, node.fchild)
 
-
-
 def classifyRecords(records, my_tree):
 	for record in records:		
 		classifyRecord(record, my_tree.root)
 
-# PrintTree method
+# PrintTree methods
 def printTree(my_tree):
 	printTreeInOrder(my_tree.root, "  ")
-def printTreeInOrder(node, spaces):
 
+def printTreeInOrder(node, spaces):
 	if not node.tchild is None:
 		printTreeInOrder(node.tchild, spaces + "         ")	
 	if node.is_leaf: print spaces + str(node.classification)
@@ -163,7 +163,7 @@ my_tree = d_tree(data_keys, col_nums)
 recursiveSplit(my_tree.root)
 printTree(my_tree)
 
-test_record = [[0,0,0]]
+test_record = [[0,0,1]]
 
 classifyRecords(test_record, my_tree)
 print "printing classification: " + str(test_record[-1])

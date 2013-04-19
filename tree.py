@@ -2,7 +2,7 @@
 
 import copy
 
-column_details = [["binary"], ["log_distance"], ["other"]]
+column_details = [["binary"], ["log_distance"], ["binary"]]
 inputfile = 'sample_input.txt'
 data=dict()
 f = open('sample_input.txt')
@@ -51,35 +51,38 @@ def calculateGini(records):
 def returnSplitGini(records, col_split):
 	true_set= list()
 	false_set= list()
-	return_set= list()
+	return_set= tuple()
+	records_length = float(len(records))
 
 	if column_details[col_split][0] == "binary":
 		for record in records:		
 			if data[record][col_split] == 1: true_set.append(record)
 			else: false_set.append(record)
 		true_set_gini = calculateGini(true_set)
-		false_set_gini = calculateGini(false_set)
-		records_length = float(len(records))
+		false_set_gini = calculateGini(false_set)		
 		total_gini = ( (len(true_set) / records_length * true_set_gini) + 
 		( len(false_set) / records_length * false_set_gini) )
 		return_set = (total_gini, true_set, false_set, col_split)
 
 	elif column_details[col_split][0] == "log_distance":
+		print "in log distance"
 		best_gini = 0.6
+		best_set= tuple()		
 		for log_break in range(1, 10):
+			del true_set[:]
+			del false_set[:]
 			for record in records:
-				if data[record][col_split] >= quartile: true_set.append(record)
+				if data[record][col_split] >= log_break: true_set.append(record)
 				else: false_set.append(record)
 			true_set_gini = calculateGini(true_set)
 			false_set_gini = calculateGini(false_set)
 			total_gini = ( (len(true_set) / records_length * true_set_gini) + 
 			( len(false_set) / records_length * false_set_gini) )
-
 			if total_gini < best_gini:
-				return_set = (total_gini, true_set, false_set, col_split, log_break)
+				return_set = (total_gini, copy.deepcopy(true_set), copy.deepcopy(false_set), col_split, log_break)				
 				best_gini = total_gini
-	else: return
-
+	else: 
+		print "here"		
 	return return_set
 	
 
@@ -95,6 +98,7 @@ def classifyLeaf(records):
 
 	
 def recursiveSplit(node):
+	print "parent node: " + str(node.records)
 	if len(node.records) <= 1 or len(node.col_nums) < 1:
 		makeLeaf(node)
 		return
@@ -110,9 +114,10 @@ def recursiveSplit(node):
 			return_values = returnSplitGini(node.records, col_id)
 			if return_values[0] < node.gini:
 				best = copy.deepcopy(return_values)
-		if best is None:
+		if len(best) == 0:
 			makeLeaf(node)
 			return	
+		print "printing best: " + str(best)
 		node.split_col = best[3]
 		if column_details[node.split_col][0] == "real":
 			node.split_value = best[4]

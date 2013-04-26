@@ -1,18 +1,30 @@
 # Python Implementation of a two class decision tree
 
-import copy
+import copy, random
 
-column_details = [["binary"], ["log_distance"], ["binary"]]
-inputfile = 'sample_input.txt'
+column_details = [["log_distance"], ["log_distance"], ["log_distance"], ["log_distance"], ["log_distance"], ["log_distance"], ["log_distance"], ["log_distance"], ["log_distance"], ["log_distance"], ["log_distance"] ]
+inputfile = 'datasets/all.csv'
+random_train=random.sample(range(33000), 20000)
+
 data=dict()
-f = open('sample_input.txt')
+tests=dict()
+total=dict()
+test_records=list()
+
+
+f = open(inputfile)
 for line in iter(f):
 	line = line.replace('\n', "")
 	line_array = line.split(',')
 	line_array = map(int, line_array)
 	fid = int(line_array[0])
-	attr_list = line_array[1:]
-	data[fid] = attr_list
+	if fid not in random_train:
+		test_records.append(fid)
+		tests[fid] = line_array[1:12] # for testing, get id and all but class to test on, then append class and compare
+	else:
+		attr_list = line_array[1:]
+		data[fid] = attr_list # save training date in dictionary with class
+	total[fid] = line_array[1:] # get them all into a dictionary to compare
 f.close()
 
 data_keys = list(data.keys())
@@ -64,11 +76,10 @@ def returnSplitGini(records, col_split):
 		( len(false_set) / records_length * false_set_gini) )
 		return_set = (total_gini, true_set, false_set, col_split)
 
-	#elif column_details[col_split][0] == "log_distance":
-	else: # column_details[col_split][0] == "log_distance":
+	else: 
 		best_gini = 0.6
 		best_set= tuple()		
-		for log_break in range(1, 10):
+		for log_break in range(0, 10):
 			del true_set[:]
 			del false_set[:]
 			for record in records:
@@ -97,8 +108,7 @@ def classifyLeaf(records):
 
 	
 def recursiveSplit(node):
-	print "parent node: " + str(node.records)
-	if len(node.records) <= 1 or len(node.col_nums) < 1:
+	if len(node.records) <= 20 or len(node.col_nums) < 1:
 		makeLeaf(node)
 		return
 	node.gini = calculateGini(node.records)	
@@ -116,10 +126,8 @@ def recursiveSplit(node):
 		if len(best) == 0:
 			makeLeaf(node)
 			return	
-		print "printing best: " + str(best)
 		node.split_col = best[3]
 		if column_details[node.split_col][0] == "log_distance":
-			print "yes a log"
 			node.split_value = best[4]
 		split_col_index = col_nums.index(node.split_col)
 		colst =list()
@@ -132,9 +140,11 @@ def recursiveSplit(node):
 
 def classifyRecord(record, node):
 	if node.is_leaf:
-		print "at leaf this is classification: " + str(node.classification)
+		#print node.classification
+		#record.append(node.classification)
+		print node.classification
 		record.append(node.classification)
-		return
+		#return result
 
 	elif column_details[node.split_col][0] == "binary":
 		if record[node.split_col] == 1: classifyRecord(record, node.tchild)
@@ -143,9 +153,11 @@ def classifyRecord(record, node):
 		if record[node.split_col] >= node.split_value: classifyRecord(record, node.tchild)
 		else: classifyRecord(record, node.fchild)
 
-def classifyRecords(records, my_tree):
-	for record in records:		
-		classifyRecord(record, my_tree.root)
+
+def classifyRecords(test_records, my_tree):
+	for record in test_records:	
+		
+		classifyRecord(tests[record], my_tree.root)		
 
 # PrintTree methods
 def printTree(my_tree):
@@ -155,15 +167,29 @@ def printTreeInOrder(node, spaces):
 	if not node.tchild is None:
 		printTreeInOrder(node.tchild, spaces + "         ")	
 	if node.is_leaf: print spaces + str(node.classification)
-	else: print spaces + str(node.split_col)
+	else: print spaces + str(node.split_col) + str(node.split_value)
 	if not node.fchild is  None:
 		printTreeInOrder(node.fchild, spaces + "         ")
+
+
 
 my_tree = d_tree(data_keys, col_nums)
 recursiveSplit(my_tree.root)
 printTree(my_tree)
 
-test_record = [[0,0,1]]
+classifyRecords(test_records, my_tree)
 
-classifyRecords(test_record, my_tree)
-print "printing classification: " + str(test_record[-1])
+for record in tests:
+	print "printing classification: " + str(tests[record])
+
+
+# now check accuracy!
+correct = 0
+total_tests = 0
+for record in test_records:
+	total_tests += 1
+	if (total[record][-1] == 1 and tests[record][-1] == True) or (total[record][-1] == 0 and tests[record][-1] == False) : correct += 1
+
+
+
+print "Accuracy: " + str(correct) + " correct out of a total of: " + str(total_tests) + ". Accuracy = " + str(correct * 1.0/total_tests)

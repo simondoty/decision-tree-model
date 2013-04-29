@@ -1,4 +1,4 @@
-######################################################################## 
+####################################################################### 
 # Simon Doty (dotysn)
 # CS378 Data Mining; Professor Pradeep Ravikumar
 # Project Title: 
@@ -51,19 +51,20 @@ column_details = [["log_distance"], ["log_distance"], ["log_distance"],
 ["log_distance"], ["log_distance"], ["log_distance"], ["log_distance"]]
 
 
-def buildTree(input_file=None, use_all=False, total_size=None, train_size=None):
+def buildTree(input_file=None, use_all=False, total_set=None, random_train=None):
 
-	if input_file is None or total_size is None or train_size is None:
+	#if input_file is None or total_size is None or train_size is None:
+	if input_file is None or total_set is None or random_train is None:
 		print "Incorrect arguments to build function. Exiting program."
 		exit(0)
 
-	if not use_all:
+	#if not use_all:
 	# Create a training set and a testing set. 
-		total_set = random.sample(range(TOTAL_RECORDS), total_size )
-		random_train = random.sample(total_set, train_size)
-	else:
-		total_set = [x for x in range(TOTAL_RECORDS)]
-		random_train = random.sample(range(total_size), train_size)
+	#	total_set = random.sample(range(TOTAL_RECORDS), total_size )
+	#	random_train = random.sample(total_set, train_size)
+	#else:
+	#	total_set = [x for x in range(TOTAL_RECORDS)]
+	#	random_train = random.sample(range(total_size), train_size)
 
 
 	# use three dictionaries to store ID numbers with a list of attributes
@@ -84,7 +85,7 @@ def buildTree(input_file=None, use_all=False, total_size=None, train_size=None):
 		fid = int(line_array[0])
 		if fid not in total_set and total_set != []:
 			continue
-		elif fid not in random_train:
+		elif fid in random_train:
 			#test_records.append(fid)
 			test_data[fid] = line_array[1:12] # for testing - leave out class label
 		else:
@@ -164,7 +165,7 @@ def buildTree(input_file=None, use_all=False, total_size=None, train_size=None):
 	#
 	#
 	def recursiveSplit(node):
-		if len(node.records) <= 20 or len(node.col_nums) < 1:
+		if len(node.records) <= 50 or len(node.col_nums) < 1:
 			makeLeaf(node)
 			return
 		node.gini = calculateGini(node.records)	
@@ -241,25 +242,40 @@ def printTreeInOrder(node, spaces):
 # The tree constructor takes a list of records (training records, and list 
 # of col numbers of attributes.                            
 
+###############################################################################
+# Create a training set of roughly 2/3 total data
+# Split training set into 10 cross validation sets to estimate accuracy and prune
 
-results = buildTree('datasets/all.csv', False, 20000, 15000)
-tree = results[0]
-test_data = results[1]
-total = results[2]
+all_data = [x for x in range(1, 33392)]
+training_set_size = 2 * 33391 / 3
+training_data = random.sample((all_data), training_set_size)
+testing_data = [x for x in range(1, 33392) if x not in training_data ]
+print len(testing_data)
+random.shuffle(training_data) 
+chunk_size = training_set_size / 10
 
-printTree(tree)
+# run cross validation sets
+for i in range(0, 11):
+	print "cross test range is: [" + str(i * chunk_size) + ":" + str(i * chunk_size + chunk_size) + "]"
+	cross_test_data = training_data[i * chunk_size : i * chunk_size + chunk_size]
+	results = buildTree('datasets/all.csv', False, training_data, cross_test_data)
+	tree = results[0]
+	test_data = results[1]
+	total = results[2]
+	printTree(tree)
+	classifyRecords(test_data, tree)
 
-classifyRecords(test_data, tree)
+	correct = 0
+	total_test_data = 0
+	for record in test_data:
+		total_test_data += 1
+		if ( (total[record][-1] == 1 and test_data[record][-1] == True) or 
+			(total[record][-1] == 0 and test_data[record][-1] == False) ): 
+			correct += 1
 
-# now check accuracy
-correct = 0
-total_test_data = 0
-for record in test_data:
-	total_test_data += 1
-	if ( (total[record][-1] == 1 and test_data[record][-1] == True) or 
-		(total[record][-1] == 0 and test_data[record][-1] == False) ): 
-		correct += 1
+	# print results
+	print ( "Accuracy: " + str(correct) + " correct out of a total of: " + 
+		str(total_test_data) + ". Accuracy = " + str(correct * 1.0/total_test_data) )
 
-# print results
-print ( "Accuracy: " + str(correct) + " correct out of a total of: " + 
-	str(total_test_data) + ". Accuracy = " + str(correct * 1.0/total_test_data) )
+# run final run with all trianing and all test data
+# TODO

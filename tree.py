@@ -35,6 +35,9 @@ class d_node:
 		self.fchild = None
 		self.classification = None
 		self.split_value = None
+		self.classified_correct = 0
+		self.missclassified = 0
+
 
 # Decision Tree class
 class d_tree:
@@ -50,21 +53,43 @@ column_details = [["log_distance"], ["log_distance"], ["log_distance"],
 ["log_distance"], ["log_distance"], ["log_distance"], ["log_distance"], 
 ["log_distance"], ["log_distance"], ["log_distance"], ["log_distance"]]
 
-
-def buildTree(input_file=None, use_all=False, total_set=None, random_train=None):
+# buildTree is the main function that both creates subsets of records: train
+# and test reocrds from input file, and also builds the tree using induction
+# and several helper functions. 
+# params:
+#	input_file: 
+#			the file that is to be read from. almost always all.csv.
+#	use_all: 
+#			if use_all is true, the tree isn't created, only the records
+#			are split into a total_set and a test_set
+#	total_set:
+#			the set of all record numbers that will be split into training
+#			and testing sets
+#	test_set: 
+#			a randomized list of records that are to be used to test the 
+#			training after induction. Either a tenth or a third of total set 
+# returns:
+#	tuple: (tree, test_data, total)	
+#	tree:
+#			the tree that was created with induction using the training data
+#	test_data:
+#			the records passed in as test_set with attributes (not class) added
+#	total:
+#			the total data set recovered from reading in records from inputfile
+def buildTree(input_file=None, use_all=False, total_set=None, test_set=None):
 
 	#if input_file is None or total_size is None or train_size is None:
-	if input_file is None or total_set is None or random_train is None:
+	if input_file is None or total_set is None or test_set is None:
 		print "Incorrect arguments to build function. Exiting program."
 		exit(0)
 
 	#if not use_all:
 	# Create a training set and a testing set. 
 	#	total_set = random.sample(range(TOTAL_RECORDS), total_size )
-	#	random_train = random.sample(total_set, train_size)
+	#	test_set = random.sample(total_set, train_size)
 	#else:
 	#	total_set = [x for x in range(TOTAL_RECORDS)]
-	#	random_train = random.sample(range(total_size), train_size)
+	#	test_set = random.sample(range(total_size), train_size)
 
 
 	# use three dictionaries to store ID numbers with a list of attributes
@@ -85,7 +110,7 @@ def buildTree(input_file=None, use_all=False, total_set=None, random_train=None)
 		fid = int(line_array[0])
 		if fid not in total_set and total_set != []:
 			continue
-		elif fid in random_train:
+		elif fid in test_set:
 			test_data[fid] = line_array[1:12] # for testing - leave out class label
 		else:
 			train_data[fid] = line_array[1:]  # save training date in with class label 
@@ -152,20 +177,20 @@ def buildTree(input_file=None, use_all=False, total_set=None, random_train=None)
 	# Passed a node, the classification is calculated as the is_leaf flag set
 	def makeLeaf(node):
 		node.is_leaf = True
-		node.classification = classifyLeaf(node.records)
+		node.classification = classifyNode(node.records)
 
 	# Given a set of records, finds the majority or chooses 'true'
 	# if there is a tie
-	def classifyLeaf(records):
+	def classifyNode(records):
 		num_true = 0
 		for record in records:
 			if train_data[record][-1] == 1: num_true += 1
 		return num_true > len(records) / 2
 
-	#
-	#
+	# main recursive function that decides how to split nodes and recursively calls 
+	# function for child nodes
 	def recursiveSplit(node):
-		if len(node.records) <= 1 or len(node.col_nums) < 1:
+		if len(node.records) <= 1500 or len(node.col_nums) < 1:
 			makeLeaf(node)
 			return
 		node.gini = calculateGini(node.records)	
@@ -202,25 +227,30 @@ def buildTree(input_file=None, use_all=False, total_set=None, random_train=None)
 	return (my_tree, test_data, total)
 
 
-# induction done
+# end of buildTree()
 ###############################################################################
-# The code below is used to classify a set of records once the tree is induced.
+# start classify group of functions
 
 # Classifies a specific record given a record of attributes and the tree root
-def classifyRecord(record, node):
+def classifyRecord(rec_num, record, node, total_data):
 	if node.is_leaf:
 		record.append(node.classification)
+		if total_data[rec_num][-1] and node.classification == 1 or total_data[rec_num][-1] and node.classification == False:
+			node.classified_correct += 1
+		else:
+			node.missclassified += 1
+
 	elif column_details[node.split_col][0] == "binary":
-		if record[node.split_col] == 1: classifyRecord(record, node.tchild)
-		else: classifyRecord(record, node.fchild)
+		if record[node.split_col] == 1: classifyRecord(rec_num, record, node.tchild, total_data)
+		else: classifyRecord(rec_num, record, node.fchild, total_data)
 	else:
-		if record[node.split_col] >= node.split_value: classifyRecord(record, node.tchild)
-		else: classifyRecord(record, node.fchild)
+		if record[node.split_col] >= node.split_value: classifyRecord(rec_num, record, node.tchild, total_data)
+		else: classifyRecord(rec_num, record, node.fchild, total_data)
 
 # Classification kickoff that classifies a set of records
-def classifyRecords(test_records, my_tree):
+def classifyRecords(test_records, my_tree, total_set):
 	for record in test_records:		
-		classifyRecord(test_data[record], my_tree.root)
+		classifyRecord(record,test_data[record], my_tree.root, total_set)
 
 # classification done
 ###############################################################################
@@ -239,6 +269,52 @@ def printTreeInOrder(node, spaces):
 
 # printing done
 ############################################################################
+# Pruning functions
+def classifyNode(records):
+		num_true = 0
+		for record in records:
+			if train_data[record][-1] == 1: num_true += 1
+		return num_true > len(records) / 2
+
+def countClassifications(node):
+	if node.is_leaf:
+		return node.classified_correct
+		
+		
+	else: # not a leaf, so keep counting
+		return countClassifications(node.tchild) + countClassifications(node.fchild)
+		
+
+
+def pruneTreeR(node=None, total_set=None):
+	if node is None or total_set is None:
+		print "No node or no total_set passed to recursive prune"
+		exit(0)
+	if node.is_leaf: 
+		return
+	else:
+		correct = countClassifications(node)
+		node.classification = classifyNode(node.records)
+		internal_correct = 0
+		for record in node.records:
+			if total_set[record][-1] == 1 and node.classification == True or total_set[record][-1] == 0 and node.classification == False:
+				internal_correct += 1
+		if internal_correct > correct:
+			node.is_leaf = True
+			return
+		pruneTreeR(node.tchild, total_set)
+		pruneTreeR(node.fchild, total_set)
+
+def pruneTree(tree=None, total_set=None):
+	if tree is None:
+		print "No tree passed into prune function!"
+		exit(0)
+	pruneTreeR(tree.root, total_set)
+
+
+
+
+
 # The code below is run to build the decision tree with the training train_data. 
 # The tree constructor takes a list of records (training records, and list 
 # of col numbers of attributes.                            
@@ -265,7 +341,9 @@ for i in range(0, 1):
 	test_data = results[1]
 	total = results[2]
 	printTree(tree)
-	classifyRecords(test_data, tree)
+	print type(total)
+	classifyRecords(test_data, tree, total)
+	
 
 	correct = 0
 	total_test_data = 0
@@ -282,6 +360,7 @@ for i in range(0, 1):
 	# print results
 	print ( "Accuracy: " + str(correct) + " correct out of a total of: " + 
 		str(total_test_data) + ". Accuracy = " + str(accuracy) )
+	pruneTree(tree, total)
 
 # run final run with all trianing and all test data
 # get best_tree and pass tht and the testing_reocrds to classifyRecords

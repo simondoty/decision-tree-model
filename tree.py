@@ -165,7 +165,7 @@ def buildTree(input_file=None, use_all=False, total_set=None, random_train=None)
 	#
 	#
 	def recursiveSplit(node):
-		if len(node.records) <= 1 or len(node.col_nums) < 1:
+		if len(node.records) <= 40 or len(node.col_nums) < 1:
 			makeLeaf(node)
 			return
 		node.gini = calculateGini(node.records)	
@@ -251,22 +251,23 @@ all_data = [x for x in range(1, 33392)]
 training_set_size = 2 * 33391 / 3
 training_data = random.sample((all_data), training_set_size)
 testing_data = [x for x in range(1, 33392) if x not in training_data ]
-print len(testing_data)
 random.shuffle(training_data) 
 chunk_size = training_set_size / 10
-best_tree = None
-best_accuracy = 0
+total_correct = 0
+total_classified = 0
+
 # run cross validation sets
-for i in range(0, 1):
-	print "cross test range is: [" + str(i * chunk_size) + ":" + str(i * chunk_size + chunk_size) + "]"
+print "\nBuilding tree, classifying test records, and calculating accuracy for cross validation sets 1 - 10..."
+for i in range(0, 10):
+	print ("\nCross validation set " + str(i+1) + 
+		" (records [" + str(i * chunk_size) + ":" + str(i * chunk_size + chunk_size) + "] of training set):")
 	cross_test_data = training_data[i * chunk_size : i * chunk_size + chunk_size]
 	results = buildTree('datasets/all.csv', False, training_data, cross_test_data)
 	tree = results[0]
 	test_data = results[1]
 	total = results[2]
-	printTree(tree)
+	#printTree(tree)
 	classifyRecords(test_data, tree)
-
 	correct = 0
 	total_test_data = 0
 	for record in test_data:
@@ -276,19 +277,23 @@ for i in range(0, 1):
 			correct += 1
 
 	accuracy = correct * 1.0 / total_test_data
-	if accuracy > best_accuracy:
-		best_accuracy = accuracy
-		best_tree = copy.deepcopy(tree)
-	# print results
-	print ( "Accuracy: " + str(correct) + " correct out of a total of: " + 
-		str(total_test_data) + ". Accuracy = " + str(accuracy) )
+	print ( str(correct) + " records classified correctly out of a total of " + 
+		str(total_test_data) + ".\nAccuracy of cross validation set " + str(i + 1) + " = " + str(accuracy) )
+	total_classified += total_test_data
+	total_correct += correct
+print "----------------------------------------------------------------------------------"
+# print estimated accuracy of the whole training set with test data
+accuracy = total_correct * 1.0 / total_classified
+print ( "\nAcross all ten (10) cross validation sets:\n" + str(total_correct) + " classified correctly out of a total of " + 
+	str(total_classified) + ".\nEstimated accuracy of classifier = " + str(accuracy) + "\n")
 
 # run final run with all trianing and all test data
 # get best_tree and pass tht and the testing_reocrds to classifyRecords
-final_results = buildTree('datasets/all.csv', True, all_data, testing_data)
+final_results = buildTree('datasets/all.csv', False, all_data, testing_data)
+tree = final_results[0]
 test_data = final_results[1]
 total = final_results[2]
-classifyRecords(test_data, best_tree)
+classifyRecords(test_data, tree)
 
 correct = 0
 total_test_data = 0
@@ -299,9 +304,8 @@ for record in test_data:
 		correct += 1
 
 accuracy = correct * 1.0 / total_test_data
-if accuracy > best_accuracy:
-	best_accuracy = accuracy
-	best_tree = copy.deepcopy(tree)
+print "----------------------------------------------------------------------------------"
 # print results
-print ( "Accuracy: " + str(correct) + " correct out of a total of: " + 
-	str(total_test_data) + ". Accuracy = " + str(accuracy) )
+print ( "\nFinal results using entire training set to train and entire testing set to test: " +
+	"\n" + str(correct) + " correct out of a total of " + 
+	str(total_test_data) + ".\nFinal accuracy of model = " + str(accuracy) )

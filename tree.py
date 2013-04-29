@@ -86,14 +86,14 @@ def buildTree(input_file=None, use_all=False, total_set=None, random_train=None)
 		if fid not in total_set and total_set != []:
 			continue
 		elif fid in random_train:
-			#test_records.append(fid)
 			test_data[fid] = line_array[1:12] # for testing - leave out class label
 		else:
 			train_data[fid] = line_array[1:]  # save training date in with class label 
-		
 		total[fid] = line_array[1:]   # save all to check accuracy later
 	f.close()
 
+	if use_all == True:
+		return (None, test_data, total)
 	# make a list of training records and a list of column numbers
 	train_data_keys = list(train_data.keys())
 	col_nums = list() 
@@ -165,7 +165,7 @@ def buildTree(input_file=None, use_all=False, total_set=None, random_train=None)
 	#
 	#
 	def recursiveSplit(node):
-		if len(node.records) <= 50 or len(node.col_nums) < 1:
+		if len(node.records) <= 1 or len(node.col_nums) < 1:
 			makeLeaf(node)
 			return
 		node.gini = calculateGini(node.records)	
@@ -197,7 +197,8 @@ def buildTree(input_file=None, use_all=False, total_set=None, random_train=None)
 
 	my_tree = d_tree(train_data_keys, col_nums) # create the tree
 	recursiveSplit(my_tree.root) # kickoff induction with root
-	#printTree(my_tree)
+
+
 	return (my_tree, test_data, total)
 
 
@@ -253,9 +254,10 @@ testing_data = [x for x in range(1, 33392) if x not in training_data ]
 print len(testing_data)
 random.shuffle(training_data) 
 chunk_size = training_set_size / 10
-
+best_tree = None
+best_accuracy = 0
 # run cross validation sets
-for i in range(0, 11):
+for i in range(0, 1):
 	print "cross test range is: [" + str(i * chunk_size) + ":" + str(i * chunk_size + chunk_size) + "]"
 	cross_test_data = training_data[i * chunk_size : i * chunk_size + chunk_size]
 	results = buildTree('datasets/all.csv', False, training_data, cross_test_data)
@@ -273,9 +275,33 @@ for i in range(0, 11):
 			(total[record][-1] == 0 and test_data[record][-1] == False) ): 
 			correct += 1
 
+	accuracy = correct * 1.0 / total_test_data
+	if accuracy > best_accuracy:
+		best_accuracy = accuracy
+		best_tree = copy.deepcopy(tree)
 	# print results
 	print ( "Accuracy: " + str(correct) + " correct out of a total of: " + 
-		str(total_test_data) + ". Accuracy = " + str(correct * 1.0/total_test_data) )
+		str(total_test_data) + ". Accuracy = " + str(accuracy) )
 
 # run final run with all trianing and all test data
-# TODO
+# get best_tree and pass tht and the testing_reocrds to classifyRecords
+final_results = buildTree('datasets/all.csv', True, all_data, testing_data)
+test_data = final_results[1]
+total = final_results[2]
+classifyRecords(test_data, best_tree)
+
+correct = 0
+total_test_data = 0
+for record in test_data:
+	total_test_data += 1
+	if ( (total[record][-1] == 1 and test_data[record][-1] == True) or 
+		(total[record][-1] == 0 and test_data[record][-1] == False) ): 
+		correct += 1
+
+accuracy = correct * 1.0 / total_test_data
+if accuracy > best_accuracy:
+	best_accuracy = accuracy
+	best_tree = copy.deepcopy(tree)
+# print results
+print ( "Accuracy: " + str(correct) + " correct out of a total of: " + 
+	str(total_test_data) + ". Accuracy = " + str(accuracy) )

@@ -51,33 +51,21 @@ column_details = [["log_distance"], ["log_distance"], ["log_distance"],
 ["log_distance"], ["log_distance"], ["log_distance"], ["log_distance"]]
 
 
-def buildTree(input_file=None, use_all=False, total_set=None, random_train=None):
+def buildTree(input_file=None, use_all=False, total_set=None, random_train=None, preprune=10):
 
 	#if input_file is None or total_size is None or train_size is None:
 	if input_file is None or total_set is None or random_train is None:
 		print "Incorrect arguments to build function. Exiting program."
 		exit(0)
 
-	#if not use_all:
-	# Create a training set and a testing set. 
-	#	total_set = random.sample(range(TOTAL_RECORDS), total_size )
-	#	random_train = random.sample(total_set, train_size)
-	#else:
-	#	total_set = [x for x in range(TOTAL_RECORDS)]
-	#	random_train = random.sample(range(total_size), train_size)
-
-
 	# use three dictionaries to store ID numbers with a list of attributes
 	train_data=dict()
 	test_data=dict()
 	total=dict()
 
-	#test_records=list()
-
 	# read in the da row by row and separate into training or test da
 	inputfile = input_file
 	f = open(inputfile)
-
 	for line in iter(f):
 		line = line.replace('\n', "")
 		line_array = line.split(',')
@@ -86,10 +74,10 @@ def buildTree(input_file=None, use_all=False, total_set=None, random_train=None)
 		if fid not in total_set and total_set != []:
 			continue
 		elif fid in random_train:
-			test_data[fid] = line_array[1:12] # for testing - leave out class label
+			test_data[fid] = line_array[1:12] # for testing - no class label
 		else:
-			train_data[fid] = line_array[1:]  # save training date in with class label 
-		total[fid] = line_array[1:]   # save all to check accuracy later
+			train_data[fid] = line_array[1:]  # save training data with class 
+		total[fid] = line_array[1:]        # save all to check accuracy later
 	f.close()
 
 	if use_all == True:
@@ -144,7 +132,8 @@ def buildTree(input_file=None, use_all=False, total_set=None, random_train=None)
 				total_gini = ( (len(true_set) / records_length * true_set_gini) + 
 				( len(false_set) / records_length * false_set_gini) )
 				if total_gini < best_gini:
-					return_set = (total_gini, copy.deepcopy(true_set), copy.deepcopy(false_set), col_split, log_break)				
+					return_set = (total_gini, copy.deepcopy(true_set), 
+						copy.deepcopy(false_set), col_split, log_break)				
 					best_gini = total_gini
 			
 		return return_set
@@ -154,18 +143,17 @@ def buildTree(input_file=None, use_all=False, total_set=None, random_train=None)
 		node.is_leaf = True
 		node.classification = classifyLeaf(node.records)
 
-	# Given a set of records, finds the majority or chooses 'true'
-	# if there is a tie
+	# Given a set of records, finds the majority and returns T/F
 	def classifyLeaf(records):
 		num_true = 0
 		for record in records:
 			if train_data[record][-1] == 1: num_true += 1
 		return num_true > len(records) / 2
 
-	#
-	#
+	# Most induction work done here. given node, choses  how to split
+	# and constructs child nodes, or makes node a leaf
 	def recursiveSplit(node):
-		if len(node.records) <= 40 or len(node.col_nums) < 1:
+		if len(node.records) <= preprune or len(node.col_nums) < 1:
 			makeLeaf(node)
 			return
 		node.gini = calculateGini(node.records)	
@@ -197,8 +185,6 @@ def buildTree(input_file=None, use_all=False, total_set=None, random_train=None)
 
 	my_tree = d_tree(train_data_keys, col_nums) # create the tree
 	recursiveSplit(my_tree.root) # kickoff induction with root
-
-
 	return (my_tree, test_data, total)
 
 
@@ -214,7 +200,8 @@ def classifyRecord(record, node):
 		if record[node.split_col] == 1: classifyRecord(record, node.tchild)
 		else: classifyRecord(record, node.fchild)
 	else:
-		if record[node.split_col] >= node.split_value: classifyRecord(record, node.tchild)
+		if record[node.split_col] >= node.split_value:
+			classifyRecord(record, node.tchild)
 		else: classifyRecord(record, node.fchild)
 
 # Classification kickoff that classifies a set of records
@@ -247,6 +234,9 @@ def printTreeInOrder(node, spaces):
 # Create a training set of roughly 2/3 total data
 # Split training set into 10 cross validation sets to estimate accuracy and prune
 
+
+preprune = 40
+
 all_data = [x for x in range(1, 33392)]
 training_set_size = 2 * 33391 / 3
 training_data = random.sample((all_data), training_set_size)
@@ -257,12 +247,13 @@ total_correct = 0
 total_classified = 0
 
 # run cross validation sets
-print "\nBuilding tree, classifying test records, and calculating accuracy for cross validation sets 1 - 10..."
+print ("\nBuilding tree, classifying test records, and" + 
+	"calculating accuracy for cross validation sets 1 - 10...")
 for i in range(0, 10):
 	print ("\nCross validation set " + str(i+1) + 
 		" (records [" + str(i * chunk_size) + ":" + str(i * chunk_size + chunk_size) + "] of training set):")
 	cross_test_data = training_data[i * chunk_size : i * chunk_size + chunk_size]
-	results = buildTree('datasets/all.csv', False, training_data, cross_test_data)
+	results = buildTree('datasets/all.csv', False, training_data, cross_test_data, preprune)
 	tree = results[0]
 	test_data = results[1]
 	total = results[2]
@@ -277,6 +268,7 @@ for i in range(0, 10):
 			correct += 1
 
 	accuracy = correct * 1.0 / total_test_data
+
 	print ( str(correct) + " records classified correctly out of a total of " + 
 		str(total_test_data) + ".\nAccuracy of cross validation set " + str(i + 1) + " = " + str(accuracy) )
 	total_classified += total_test_data
@@ -284,28 +276,47 @@ for i in range(0, 10):
 print "----------------------------------------------------------------------------------"
 # print estimated accuracy of the whole training set with test data
 accuracy = total_correct * 1.0 / total_classified
-print ( "\nAcross all ten (10) cross validation sets:\n" + str(total_correct) + " classified correctly out of a total of " + 
+print ( "\nAcross all ten (10) cross validation sets:\n" + str(total_correct) +
+	" classified correctly out of a total of " + 
 	str(total_classified) + ".\nEstimated accuracy of classifier = " + str(accuracy) + "\n")
 
-# run final run with all trianing and all test data
-# get best_tree and pass tht and the testing_reocrds to classifyRecords
-final_results = buildTree('datasets/all.csv', False, all_data, testing_data)
+###############################################################################
+# Final results
+
+final_results = buildTree('datasets/all.csv', False, all_data, testing_data, preprune)
 tree = final_results[0]
 test_data = final_results[1]
 total = final_results[2]
 classifyRecords(test_data, tree)
 
+false_positives=list()
+false_negatives=list()
+true_positives=list()
+true_negatives=list()
+
 correct = 0
 total_test_data = 0
 for record in test_data:
 	total_test_data += 1
-	if ( (total[record][-1] == 1 and test_data[record][-1] == True) or 
-		(total[record][-1] == 0 and test_data[record][-1] == False) ): 
+	if (total[record][-1] == 1 and test_data[record][-1] == True):
+		true_positives.append(record)
 		correct += 1
+	elif (total[record][-1] == 0 and test_data[record][-1] == False): 
+		true_negatives.append(record)
+		correct += 1
+	elif (total[record][-1] == 0 and test_data[record][-1] == True):
+		false_positives.append(record)
+	else:
+		false_negatives.append(record)
+total_true = true_positives + true_negatives
+total_false = false_positives + false_negatives
 
 accuracy = correct * 1.0 / total_test_data
 print "----------------------------------------------------------------------------------"
-# print results
+
 print ( "\nFinal results using entire training set to train and entire testing set to test: " +
 	"\n" + str(correct) + " correct out of a total of " + 
 	str(total_test_data) + ".\nFinal accuracy of model = " + str(accuracy) )
+
+print ( "\nSize of true positives, true_negatives, false_positives, and false_negatives: " +
+	str(len(true_positives)) + ", " + str(len(true_negatives)) + ", " + str(len(false_positives)) + ", " + str(len(false_negatives)) )

@@ -1,9 +1,8 @@
 ####################################################################### 
 # Simon Doty (dotysn)
+# Predicitng Urbanization in the Austin Area Using Spatial Data Mining
 # CS378 Data Mining; Professor Pradeep Ravikumar
-# Project Title: 
-# Predicting Urban Growth in the Austin Area Using Spatial Data Mining 
-#
+
 # Python Implementation of a two class decision tree. 
 # The tree is created through recursive indicution by choosing split
 # node attributes and values using a greedy algorithm based on reducing
@@ -40,11 +39,6 @@ class d_node:
 class d_tree:
 	def __init__(self, records, col_ids):
 		self.root = d_node(records, col_ids)
-
-# class definition done
-#######################################################################
-
-
 
 column_details = [["log_distance"], ["log_distance"], ["log_distance"],
 ["log_distance"], ["log_distance"], ["log_distance"], ["log_distance"], 
@@ -253,7 +247,7 @@ for i in range(0, 10):
 	print ("\nCross validation set " + str(i+1) + 
 		" (records [" + str(i * chunk_size) + ":" + str(i * chunk_size + chunk_size) + "] of training set):")
 	cross_test_data = training_data[i * chunk_size : i * chunk_size + chunk_size]
-	results = buildTree('datasets/all.csv', False, training_data, cross_test_data, preprune)
+	results = buildTree('dataset/entire_dataset.csv', False, training_data, cross_test_data, preprune)
 	tree = results[0]
 	test_data = results[1]
 	total = results[2]
@@ -281,9 +275,10 @@ print ( "\nAcross all ten (10) cross validation sets:\n" + str(total_correct) +
 	str(total_classified) + ".\nEstimated accuracy of classifier = " + str(accuracy) + "\n")
 
 ###############################################################################
-# Final results
+# Calculate final results using the whole dataset, training and testing.
+# Print results when done. 
 
-final_results = buildTree('datasets/all.csv', False, all_data, testing_data, preprune)
+final_results = buildTree('dataset/entire_dataset.csv', False, all_data, testing_data, preprune)
 tree = final_results[0]
 test_data = final_results[1]
 total = final_results[2]

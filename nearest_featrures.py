@@ -1,5 +1,10 @@
-# Name: Find nearest features for a set of different data
-# Description: Finds nearest features from input feature class to near feature class.
+# Simon Doty (dotysn)
+# Predicting Urbanization in the Austin Area Using Spatial Data Mining
+# CS 378 -- Data Mining, Prof Ravikumar
+
+# This script finds the nearest locations of various
+# points of interest to each cell (record in the dataset).
+
 
 import arcpy
 from arcpy import env
